@@ -9,7 +9,7 @@ import { DEFAULT_SOURCE_CHAIN, isSourceChain, NATIVE_GAS_RESERVE, type SourceCha
 import { chainName } from '@/lib/chains';
 import { formatTokenAmount, parseTokenAmount } from '@/lib/format';
 import { useEvmWallet } from '@/wallet';
-import { useDepositQuote } from '../hooks/useDepositQuote';
+import { useDepositQuoteFor } from '../api/useTransportFlows';
 import { useTokenBalance } from '../hooks/useTokenBalance';
 import { useTokenChoice } from '../hooks/useTokenChoice';
 import { useVault, useVaults } from '../hooks/useVaults';
@@ -47,7 +47,12 @@ export function DepositForm({
 
   // Inputs the user is reviewing. While the dialog is open it quotes them itself, so the form stops quoting.
   const [review, setReview] = useState<DepositReview | null>(null);
-  const quote = useDepositQuote({ vault, srcChainKey: chainKey, token, inputAmount: review ? undefined : inputAmount });
+  const quote = useDepositQuoteFor({
+    vault,
+    srcChainKey: chainKey,
+    token,
+    inputAmount: review ? undefined : inputAmount,
+  });
 
   const action = (() => {
     if (!wallet.isConnected) return { label: 'Connect wallet', onClick: wallet.connect };

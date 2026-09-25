@@ -9,9 +9,8 @@ import type { SourceChainKey } from '@/config/workshop';
 import { chainName } from '@/lib/chains';
 import { formatTokenAmount } from '@/lib/format';
 import { useEvmWallet } from '@/wallet';
-import { useDepositQuote } from '../hooks/useDepositQuote';
+import { useDepositFlow, useDepositQuoteFor } from '../api/useTransportFlows';
 import { useFlowProgress } from '../hooks/useFlowProgress';
-import { useVaultDeposit } from '../hooks/useVaultDeposit';
 import { SHARE_DECIMALS } from '../lib/vaults';
 import { QuoteDetails } from './QuoteDetails';
 import { QuoteError } from './QuoteError';
@@ -33,11 +32,11 @@ export function DepositDialog({ review, onClose }: { review: DepositReview; onCl
   const { vault, token, chainKey, inputAmount } = review;
   const { address, walletProvider, isWrongChain, switchChain } = useEvmWallet(chainKey);
   const [confirmedShares, setConfirmedShares] = useState<bigint>();
-  const { state, deposit } = useVaultDeposit();
+  const { state, deposit } = useDepositFlow();
   const progress = useFlowProgress(state, chainKey, true);
   const { step } = progress;
   // Live quote for the frozen inputs, only while the user can (re)confirm; it stops once the flow starts.
-  const quote = useDepositQuote({
+  const quote = useDepositQuoteFor({
     vault,
     srcChainKey: chainKey,
     token,

@@ -1,4 +1,3 @@
-import { useLeverageYieldShareBalances } from '@sodax/dapp-kit';
 import { ChainKeys, type LeverageYieldVault } from '@sodax/types';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { SourceChainKey } from '@/config/workshop';
 import { chainName, explorerAddressUrl } from '@/lib/chains';
 import { formatTokenAmount, shortenAddress } from '@/lib/format';
+import { useShareBalances } from '../api/useTransportReads';
 import { useShareValue } from '../hooks/useShareValue';
 import { SHARE_DECIMALS, underlying } from '../lib/vaults';
 import { WithdrawDialog } from './WithdrawDialog';
@@ -15,7 +15,7 @@ import { WithdrawDialog } from './WithdrawDialog';
  * The user's shares in one vault, for deposits made from one chain.
  *
  * Shares are NOT in the user's wallet: they sit in the SODAX hub wallet on Sonic derived from
- * (source chain, address). `useLeverageYieldShareBalances` resolves that hub wallet for you.
+ * (source chain, address). `useLeverageYieldShareBalances` (SDK) resolves that hub wallet for you.
  */
 export function PositionCard({
   vault,
@@ -26,10 +26,7 @@ export function PositionCard({
   chainKey: SourceChainKey;
   address: string | undefined;
 }) {
-  const [balance] = useLeverageYieldShareBalances({
-    params: { vault: vault.vault, holders: address ? [{ chainKey, address }] : undefined },
-  });
-  const holding = balance?.data;
+  const [holding] = useShareBalances(vault.vault, address ? [{ chainKey, address }] : undefined);
   const value = useShareValue(vault.vault, holding?.shares || undefined);
   const asset = underlying(vault);
   const [withdrawOpen, setWithdrawOpen] = useState(false);

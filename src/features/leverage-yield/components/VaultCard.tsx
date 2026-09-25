@@ -1,9 +1,3 @@
-import {
-  useLeverageYieldEffectiveApr,
-  useLeverageYieldPosition,
-  useLeverageYieldShareBalances,
-  useLeverageYieldTotalAssets,
-} from '@sodax/dapp-kit';
 import type { LeverageYieldVault } from '@sodax/types';
 import { InfoIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -15,6 +9,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { SOURCE_CHAINS } from '@/config/workshop';
 import { formatBps, formatRayPercent, formatTokenAmount, formatWad } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useEffectiveApr, useShareBalances, useTotalAssets, useVaultPosition } from '../api/useTransportReads';
 import { useSharePrice } from '../hooks/useShareValue';
 import { SHARE_DECIMALS, underlying, yieldSource } from '../lib/vaults';
 
@@ -30,19 +25,17 @@ export function VaultCard({
   selected?: boolean;
   onDeposit: () => void;
 }) {
-  const { data: apr, isError: aprError } = useLeverageYieldEffectiveApr({ params: { vault: vault.vault } });
-  const { data: tvl } = useLeverageYieldTotalAssets({ params: { vault: vault.vault } });
+  const { data: apr, isError: aprError } = useEffectiveApr(vault.vault);
+  const tvl = useTotalAssets(vault.vault);
   const sharePrice = useSharePrice(vault.vault);
-  const { data: position } = useLeverageYieldPosition({ params: { vault: vault.vault } });
+  const position = useVaultPosition(vault.vault);
 
   // Deposits from each chain land in a different hub wallet, so sum across all source chains.
-  const balances = useLeverageYieldShareBalances({
-    params: {
-      vault: vault.vault,
-      holders: address ? SOURCE_CHAINS.map(chainKey => ({ chainKey, address })) : undefined,
-    },
-  });
-  const myShares = balances.reduce((sum, query) => sum + (query.data?.shares ?? 0n), 0n);
+  const balances = useShareBalances(
+    vault.vault,
+    address ? SOURCE_CHAINS.map(chainKey => ({ chainKey, address })) : undefined,
+  );
+  const myShares = balances.reduce((sum, holding) => sum + (holding?.shares ?? 0n), 0n);
   const { symbol, decimals } = underlying(vault);
 
   return (
@@ -55,7 +48,7 @@ export function VaultCard({
               {vault.name} · {yieldSource(vault)}
             </p>
           </div>
-          {apr?.lsdApr.stale && <Badge variant="muted">APR estimate</Badge>}
+          {apr?.stale && <Badge variant="muted">APR estimate</Badge>}
         </div>
         <div className="pt-2">
           {apr ? (

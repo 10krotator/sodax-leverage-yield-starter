@@ -11,10 +11,9 @@ import { DEFAULT_SLIPPAGE_BPS, type SourceChainKey } from '@/config/workshop';
 import { chainName } from '@/lib/chains';
 import { formatBps, formatTokenAmount, parseTokenAmount } from '@/lib/format';
 import { useEvmWallet } from '@/wallet';
+import { useWithdrawFlow, useWithdrawQuoteFor } from '../api/useTransportFlows';
 import { useFlowProgress } from '../hooks/useFlowProgress';
 import { useTokenChoice } from '../hooks/useTokenChoice';
-import { useVaultWithdraw } from '../hooks/useVaultWithdraw';
-import { useWithdrawQuote } from '../hooks/useWithdrawQuote';
 import { SHARE_DECIMALS } from '../lib/vaults';
 import { ChainSelect } from './ChainSelect';
 import { QuoteError } from './QuoteError';
@@ -38,11 +37,17 @@ export function WithdrawDialog({ vault, chainKey, shareBalance, onClose }: Props
   const [sharesText, setSharesText] = useState('');
   const shares = parseTokenAmount(sharesText, SHARE_DECIMALS);
 
-  const { state, withdraw } = useVaultWithdraw();
+  const { state, withdraw } = useWithdrawFlow();
   const progress = useFlowProgress(state, chainKey, false);
   const { step } = progress;
   // Stop quoting once the user has confirmed; the minimum is already captured.
-  const quote = useWithdrawQuote({ vault, dstChainKey, outputToken, shares: step === 'idle' ? shares : undefined });
+  const quote = useWithdrawQuoteFor({
+    vault,
+    srcChainKey: chainKey,
+    dstChainKey,
+    outputToken,
+    shares: step === 'idle' ? shares : undefined,
+  });
 
   const confirm = () => {
     if (!wallet.address || !wallet.walletProvider || !shares || !quote.minAmountOut || !outputToken) return;
