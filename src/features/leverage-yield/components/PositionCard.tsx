@@ -1,5 +1,7 @@
 import { useLeverageYieldShareBalances } from '@sodax/dapp-kit';
 import { ChainKeys, type LeverageYieldVault } from '@sodax/types';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { SourceChainKey } from '@/config/workshop';
@@ -7,6 +9,7 @@ import { chainName, explorerAddressUrl } from '@/lib/chains';
 import { formatTokenAmount, shortenAddress } from '@/lib/format';
 import { useShareValue } from '../hooks/useShareValue';
 import { SHARE_DECIMALS, underlying } from '../lib/vaults';
+import { WithdrawDialog } from './WithdrawDialog';
 
 /**
  * The user's shares in one vault, for deposits made from one chain.
@@ -29,6 +32,7 @@ export function PositionCard({
   const holding = balance?.data;
   const value = useShareValue(vault.vault, holding?.shares || undefined);
   const asset = underlying(vault);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   return (
     <Card>
@@ -66,6 +70,19 @@ export function PositionCard({
               </a>{' '}
               on Sonic. It won't show in your wallet app.
             </p>
+            {holding.shares > 0n && (
+              <Button variant="outline" onClick={() => setWithdrawOpen(true)}>
+                Withdraw
+              </Button>
+            )}
+            {withdrawOpen && (
+              <WithdrawDialog
+                vault={vault}
+                chainKey={chainKey}
+                shareBalance={holding.shares}
+                onClose={() => setWithdrawOpen(false)}
+              />
+            )}
           </>
         )}
       </CardContent>
