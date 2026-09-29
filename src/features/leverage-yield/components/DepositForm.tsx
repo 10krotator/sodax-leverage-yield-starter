@@ -1,39 +1,43 @@
-import { isNativeToken } from '@sodax/types';
+import { isNativeToken, type LeverageYieldVault } from '@sodax/types';
 import { useState } from 'react';
 import { formatUnits } from 'viem';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DEFAULT_SOURCE_CHAIN, isSourceChain, NATIVE_GAS_RESERVE, type SourceChainKey } from '@/config/workshop';
 import { chainName } from '@/lib/chains';
 import { formatTokenAmount, parseTokenAmount } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { useEvmWallet } from '@/wallet';
 import { useDepositQuoteFor } from '../api/useTransportFlows';
+import type { VaultStats } from '../api/useTransportReads';
 import { useTokenBalance } from '../hooks/useTokenBalance';
 import { useTokenChoice } from '../hooks/useTokenChoice';
-import { useVault, useVaults } from '../hooks/useVaults';
+import { depositSteps } from '../lib/steps';
+import { formatUsd, priceFor, toUsd, type UsdPrices } from '../lib/usd';
+import { SHARE_DECIMALS, shareValue } from '../lib/vaults';
 import { ChainSelect } from './ChainSelect';
-import { DepositDialog, type DepositReview } from './DepositDialog';
-import { PositionCard } from './PositionCard';
+import { DepositReview, type DepositReviewInput } from './DepositReview';
+import { ProjectedInterest } from './ProjectedInterest';
 import { QuoteDetails } from './QuoteDetails';
 import { QuoteError } from './QuoteError';
-import { RiskNotice } from './RiskNotice';
+import { SidePanel } from './SidePanel';
 import { TokenSelect } from './TokenSelect';
-import { VaultApr } from './VaultApr';
-import { VaultPicker } from './VaultPicker';
 
-/** Deposit card plus the user's position for the selected vault and source chain. */
+/** Deposit tab: pay with a token from any source network; "Review deposit" opens the review in place. */
 export function DepositForm({
-  vaultName,
-  onVaultChange,
+  vault,
+  stats,
+  prices,
+  onBusyChange,
+  onClose,
 }: {
-  vaultName: string;
-  onVaultChange: (name: string) => void;
+  vault: LeverageYieldVault;
+  stats: VaultStats;
+  prices: UsdPrices;
+  onBusyChange: (busy: boolean) => void;
+  onClose: () => void;
 }) {
-  const vaults = useVaults();
-  const vault = useVault(vaultName) ?? vaults[0];
-
   // Source chain: the user's pick, else the wallet's current chain if allowed, else the default.
   const { currentChainKey } = useEvmWallet();
   const [pickedChain, setPickedChain] = useState<SourceChainKey>();
@@ -45,14 +49,18 @@ export function DepositForm({
   const inputAmount = token ? parseTokenAmount(amountText, token.decimals) : undefined;
   const { balance, isLoading: balanceLoading } = useTokenBalance(chainKey, token, wallet.address);
 
-  // Inputs the user is reviewing. While the dialog is open it quotes them itself, so the form stops quoting.
-  const [review, setReview] = useState<DepositReview | null>(null);
+  // Inputs the user is reviewing. While the review is open it quotes them itself, so the form stops quoting.
+  const [review, setReview] = useState<DepositReviewInput | null>(null);
   const quote = useDepositQuoteFor({
     vault,
     srcChainKey: chainKey,
     token,
     inputAmount: review ? undefined : inputAmount,
   });
+
+  const native = !!token && isNativeToken(chainKey, token);
+  // Max leaves some of the native token for gas.
+  const maxAmount = balance === undefined ? undefined : native ? balance - NATIVE_GAS_RESERVE[chainKey] : balance;
 
   const action = (() => {
     if (!wallet.isConnected) return { label: 'Connect wallet', onClick: wallet.connect };
@@ -61,124 +69,125 @@ export function DepositForm({
     if (!inputAmount) return { label: 'Enter a valid amount', disabled: true };
     if (balance !== undefined && inputAmount > balance)
       return { label: `Insufficient ${token?.symbol}`, disabled: true };
-    if (
-      balance !== undefined &&
-      token &&
-      isNativeToken(chainKey, token) &&
-      inputAmount > balance - NATIVE_GAS_RESERVE[chainKey]
-    )
-      return { label: `Leave some ${token.symbol} for gas`, disabled: true };
+    if (maxAmount !== undefined && native && inputAmount > maxAmount)
+      return { label: `Leave some ${token?.symbol} for gas`, disabled: true };
     if (quote.isLoading) return { label: 'Getting quote…', disabled: true };
-    if (!vault || !token || quote.error || quote.amountOut === undefined || quote.minAmountOut === undefined) {
+    if (!token || quote.error || quote.amountOut === undefined || quote.minAmountOut === undefined) {
       return { label: 'No quote', disabled: true };
     }
     const reviewed = { vault, token, chainKey, inputAmount };
     return { label: 'Review deposit', onClick: () => setReview(reviewed) };
   })();
 
-  if (!vault || !token) return null;
+  if (!token) return null;
+  if (review) {
+    return (
+      <DepositReview
+        review={review}
+        stats={stats}
+        prices={prices}
+        onBack={() => setReview(null)}
+        onBusyChange={onBusyChange}
+        onClose={onClose}
+      />
+    );
+  }
+
+  const shares = inputAmount ? quote.amountOut : undefined;
+  const amountUsd = formatUsd(toUsd(inputAmount, token.decimals, priceFor(prices, token.vault)));
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-      <Card>
-        <CardHeader>
-          <CardTitle>Deposit</CardTitle>
-          <CardDescription>Choose a vault and pay with a token from the network you already use.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Vault</span>
-              <VaultApr vault={vault.vault} className="font-semibold text-primary" />
-            </div>
-            <VaultPicker vaults={vaults} value={vault.name} onChange={onVaultChange} />
+    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="rounded-lg bg-muted p-4 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring">
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <label htmlFor="deposit-amount" className="shrink-0 font-medium">
+              You deposit
+            </label>
+            {wallet.isConnected && (
+              <span className="text-right text-muted-foreground">
+                Balance:{' '}
+                {balanceLoading ? (
+                  <Skeleton className="inline-block h-3 w-12 bg-card align-middle" />
+                ) : (
+                  `${formatTokenAmount(balance, token.decimals)} ${token.symbol}`
+                )}
+                {maxAmount !== undefined && maxAmount > 0n && (
+                  <button
+                    type="button"
+                    className="ml-2 font-semibold text-primary hover:underline"
+                    onClick={() => setAmountText(formatUnits(maxAmount, token.decimals))}
+                  >
+                    Max
+                  </button>
+                )}
+              </span>
+            )}
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">From network</span>
-              <ChainSelect value={chainKey} onChange={setPickedChain} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">Pay with</span>
-              <TokenSelect tokens={tokens} value={token.address} onChange={pickToken} />
-            </div>
+          <div className="mt-3 flex items-center gap-3">
+            <TokenSelect tokens={tokens} value={token.address} onChange={pickToken} pill />
+            <Input
+              id="deposit-amount"
+              inputMode="decimal"
+              placeholder="0"
+              value={amountText}
+              onChange={event => setAmountText(event.target.value)}
+              className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 text-right text-3xl font-semibold focus-visible:ring-0"
+            />
           </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-sm">
-              <label htmlFor="deposit-amount" className="font-medium">
-                Amount
-              </label>
-              {wallet.isConnected && (
-                <span className="text-muted-foreground">
-                  Balance:{' '}
-                  {balanceLoading ? (
-                    <Skeleton className="inline-block h-3 w-12 align-middle" />
-                  ) : (
-                    `${formatTokenAmount(balance, token.decimals)} ${token.symbol}`
-                  )}
-                </span>
-              )}
-            </div>
-            <div className="relative">
-              <Input
-                id="deposit-amount"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={amountText}
-                onChange={event => setAmountText(event.target.value)}
-                className="h-14 pr-20 text-xl"
-              />
-              {/* No Max for the native token: the user needs some of it for gas. */}
-              {balance !== undefined && balance > 0n && !isNativeToken(chainKey, token) && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="absolute right-2 top-1/2 -translate-y-1/2"
-                  onClick={() => setAmountText(formatUnits(balance, token.decimals))}
-                >
-                  Max
-                </Button>
-              )}
-            </div>
+          <div className="mt-2 flex min-h-8 items-center justify-between gap-2 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              on
+              <ChainSelect value={chainKey} onChange={setPickedChain} label="From network" inline />
+            </span>
+            <span>{amountUsd}</span>
           </div>
+        </div>
 
-          {inputAmount && quote.error ? (
-            <QuoteError message={quote.error} onRetry={quote.refetch} />
-          ) : inputAmount && quote.isLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : inputAmount && quote.amountOut !== undefined && quote.minAmountOut !== undefined ? (
+        <div className="rounded-lg bg-muted p-4">
+          <p className="text-sm font-medium">You get</p>
+          <div className="mt-2 flex items-baseline justify-between gap-3">
+            {inputAmount && quote.isLoading ? (
+              <Skeleton className="h-9 w-28 bg-card" />
+            ) : (
+              <span className={cn('min-w-0 truncate text-3xl font-semibold', !shares && 'text-subtle-foreground')}>
+                {shares !== undefined ? `≈ ${formatTokenAmount(shares, SHARE_DECIMALS)}` : '0'}
+              </span>
+            )}
+            <span className="shrink-0 text-sm text-muted-foreground">vault shares</span>
+          </div>
+          {inputAmount && quote.error && (
+            <div className="mt-3">
+              <QuoteError message={quote.error} onRetry={quote.refetch} />
+            </div>
+          )}
+          <div className="mt-3 border-t pt-3">
             <QuoteDetails
               vault={vault}
-              token={token}
-              inputAmount={inputAmount}
-              shares={quote.amountOut}
-              minShares={quote.minAmountOut}
+              stats={stats}
+              prices={prices}
+              shares={shares}
+              minShares={inputAmount ? quote.minAmountOut : undefined}
             />
-          ) : null}
-
-          <RiskNotice />
-
-          <div className="flex flex-col gap-2">
-            <Button size="lg" disabled={action.disabled} onClick={action.onClick}>
-              {action.label}
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <PositionCard vault={vault} chainKey={chainKey} address={wallet.address} />
-
-      {review && (
-        <DepositDialog
-          review={review}
-          onClose={completed => {
-            setReview(null);
-            if (completed) setAmountText('');
-          }}
+        <ProjectedInterest
+          vault={vault}
+          assets={shareValue(shares, stats.sharePrice.data)}
+          aprRay={stats.apr.data?.effectiveNetAprRay}
+          prices={prices}
         />
-      )}
+
+        <Button size="lg" disabled={action.disabled} onClick={action.onClick}>
+          {action.label}
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          Withdraw later from the same network you deposit from.
+        </p>
+      </div>
+
+      <SidePanel vault={vault} stats={stats} prices={prices} steps={depositSteps({ vault, token, chainKey })} />
     </div>
   );
 }

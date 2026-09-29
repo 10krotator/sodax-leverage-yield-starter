@@ -1,50 +1,78 @@
 import type { LeverageYieldVault, XToken } from '@sodax/types';
-import { DEFAULT_SLIPPAGE_BPS } from '@/config/workshop';
-import { formatBps, formatTokenAmount } from '@/lib/format';
-import { useShareValue } from '../hooks/useShareValue';
-import { SHARE_DECIMALS, underlying } from '../lib/vaults';
+import type { ReactNode } from 'react';
+import { DEFAULT_SLIPPAGE_BPS, type SourceChainKey } from '@/config/workshop';
+import { chainName } from '@/lib/chains';
+import { formatBps, formatRayPercent, formatTokenAmount } from '@/lib/format';
+import { cn } from '@/lib/utils';
+import type { VaultStats } from '../api/useTransportReads';
+import { formatUsd, priceFor, toUsd, type UsdPrices } from '../lib/usd';
+import { formatShares, shareValue, underlying } from '../lib/vaults';
 
-/** Deposit summary: what goes in, the shares expected, what they're worth now, the minimum accepted. */
+/**
+ * Deposit quote rows: what the shares are worth today, the APR they earn and the minimum accepted. `review` adds
+ * the frozen input and the expected shares on top, plus the slippage. "—" until there is a quote.
+ */
 export function QuoteDetails({
   vault,
-  token,
-  inputAmount,
+  stats,
+  prices,
   shares,
   minShares,
+  review,
 }: {
   vault: LeverageYieldVault;
-  token: XToken;
-  inputAmount: bigint;
-  shares: bigint;
-  minShares: bigint;
+  stats: VaultStats;
+  prices: UsdPrices;
+  shares: bigint | undefined;
+  minShares: bigint | undefined;
+  review?: { token: XToken; chainKey: SourceChainKey; inputAmount: bigint };
 }) {
-  const value = useShareValue(vault.vault, shares);
   const asset = underlying(vault);
+  const worth = shareValue(shares, stats.sharePrice.data);
+  const worthUsd = formatUsd(toUsd(worth, asset.decimals, priceFor(prices, vault.asset)));
+  const apr = stats.apr.data;
 
   return (
-    <dl className="grid grid-cols-2 gap-y-2 rounded-md bg-secondary p-4 text-sm">
-      <dt className="text-muted-foreground">You deposit</dt>
-      <dd className="text-right font-medium">
-        {formatTokenAmount(inputAmount, token.decimals)} {token.symbol}
-      </dd>
-      <dt className="text-muted-foreground">You receive (est.)</dt>
-      <dd className="text-right font-semibold">
-        {formatTokenAmount(shares, SHARE_DECIMALS)} {vault.name}
-      </dd>
-      {value !== undefined && (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+      {review && (
         <>
-          <dt className="text-muted-foreground">Worth now</dt>
-          <dd className="text-right">
-            ≈ {formatTokenAmount(value, asset.decimals)} {asset.symbol}
-          </dd>
+          <DetailRow label="You deposit">
+            {formatTokenAmount(review.inputAmount, review.token.decimals)} {review.token.symbol} on{' '}
+            {chainName(review.chainKey)}
+          </DetailRow>
+          <DetailRow label="You get">
+            <span className="font-semibold">
+              {shares !== undefined ? `≈ ${formatShares(shares, 'vault share')}` : '—'}
+            </span>
+          </DetailRow>
         </>
       )}
-      <dt className="text-muted-foreground">Minimum received</dt>
-      <dd className="text-right">
-        {formatTokenAmount(minShares, SHARE_DECIMALS)} {vault.name}
-      </dd>
-      <dt className="text-muted-foreground">Max slippage</dt>
-      <dd className="text-right">{formatBps(DEFAULT_SLIPPAGE_BPS)}</dd>
+      <DetailRow label="Worth today">
+        {worth !== undefined
+          ? `≈ ${formatTokenAmount(worth, asset.decimals)} ${asset.symbol}${worthUsd && ` · ${worthUsd}`}`
+          : '—'}
+      </DetailRow>
+      <DetailRow label="You'll earn">
+        {apr ? (
+          <span className={cn('font-medium', apr.effectiveNetAprRay < 0n ? 'text-destructive' : 'text-success')}>
+            {formatRayPercent(apr.effectiveNetAprRay)} net APR
+          </span>
+        ) : (
+          '—'
+        )}
+      </DetailRow>
+      <DetailRow label="Minimum received">{minShares !== undefined ? formatShares(minShares) : '—'}</DetailRow>
+      {review && <DetailRow label="Max slippage">{formatBps(DEFAULT_SLIPPAGE_BPS)}</DetailRow>}
     </dl>
+  );
+}
+
+/** One label/value row of a two-column `dl`. */
+export function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right">{children}</dd>
+    </>
   );
 }

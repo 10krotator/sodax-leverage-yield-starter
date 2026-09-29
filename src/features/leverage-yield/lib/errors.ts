@@ -3,6 +3,9 @@ import { isUserRejectedError } from '@sodax/dapp-kit';
 /** Turn SDK / wallet errors into one short sentence for the UI. */
 export function friendlyError(error: unknown): string {
   if (isUserRejectedError(error)) return 'You rejected the request in your wallet.';
+  // REST API failures arrive as "HTTP_REQUEST_FAILED"; the server's own error ({ code, message }) is the cause's body.
+  const apiError = (error as { cause?: { body?: { code?: string; message?: string } } })?.cause?.body;
+  if (apiError?.message) return friendlyError(apiError);
   const e = error as { code?: string; message?: string; detail?: { message?: string } };
   const message = e?.detail?.message ?? e?.message ?? '';
   // Some wallet errors reach us raw (not wrapped as a SodaxError), e.g. from API-built approvals.
