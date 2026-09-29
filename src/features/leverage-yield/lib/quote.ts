@@ -1,6 +1,6 @@
 import { DEFAULT_SLIPPAGE_BPS } from '@/config/workshop';
 import { minAmountAfterSlippage } from '@/lib/format';
-import { quoteErrorMessage } from './vaults';
+import { quoteErrorMessage } from './errors';
 
 /** What every quote hook returns, whichever direction or transport. */
 export type QuoteState = {

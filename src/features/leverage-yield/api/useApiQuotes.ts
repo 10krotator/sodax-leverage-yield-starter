@@ -3,6 +3,7 @@ import type { LeverageYieldVault, SpokeChainKey, XToken } from '@sodax/types';
 import { useMemo } from 'react';
 import { REFETCH_MS } from '@/config/workshop';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { retryUnlessClientError } from '../lib/errors';
 import { type QuoteState, quoteState } from '../lib/quote';
 import { toBigInt } from './wire';
 
@@ -34,7 +35,8 @@ export function useApiDepositQuote({
   );
   const query = useLeverageYieldApiDepositQuote({
     params: { body },
-    queryOptions: { refetchInterval: REFETCH_MS },
+    // A 4xx such as "Input amount too low" won't change on retry: show it now, refetch on the usual interval.
+    queryOptions: { refetchInterval: REFETCH_MS, retry: retryUnlessClientError },
   });
   return quoteState({
     amountOut: toBigInt(query.data?.quotedAmount),
@@ -76,7 +78,8 @@ export function useApiWithdrawQuote({
   );
   const query = useLeverageYieldApiWithdrawQuote({
     params: { body },
-    queryOptions: { refetchInterval: REFETCH_MS },
+    // A 4xx such as "Input amount too low" won't change on retry: show it now, refetch on the usual interval.
+    queryOptions: { refetchInterval: REFETCH_MS, retry: retryUnlessClientError },
   });
   return quoteState({
     amountOut: toBigInt(query.data?.quotedAmount),

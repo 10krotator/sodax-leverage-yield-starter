@@ -1,4 +1,3 @@
-import { isNoRouteRefusal } from '@sodax/sdk';
 import { type LeverageYieldVault, sonicSupportedTokens, type XToken } from '@sodax/types';
 import { formatTokenAmount, ONE_SHARE } from '@/lib/format';
 
@@ -53,13 +52,4 @@ const RAY = 10n ** 27n;
 /** Simple interest on `assets` over `days` at a RAY APR (negative when the APR is). An estimate, not a promise. */
 export function projectedInterest(assets: bigint, aprRay: bigint, days: number): bigint {
   return (assets * aprRay * BigInt(days)) / (365n * RAY);
-}
-
-/** Human-readable message for a failed quote (solver refusal or SodaxError). */
-export function quoteErrorMessage(error: unknown): string {
-  if (isNoRouteRefusal(error)) return 'No route for this amount right now. Retrying shortly; a larger amount may work.';
-  const e = error as { detail?: { message?: string }; message?: string };
-  const message = e?.detail?.message ?? e?.message ?? 'Quote failed';
-  if (/amount too low/i.test(message)) return 'Amount too low. Try at least ~$2.';
-  return message;
 }
