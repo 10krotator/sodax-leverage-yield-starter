@@ -6,6 +6,7 @@ import { formatRayPercent } from '@/lib/format';
 import type { VaultStats } from '../api/useTransportReads';
 import { formatUsd, priceFor, toUsd, type UsdPrices } from '../lib/usd';
 import { formatShares, shareValue, underlying, vaultTitle } from '../lib/vaults';
+import { SectionHeading } from './SectionHeading';
 import { TokenIcon } from './TokenIcon';
 
 /**
@@ -51,45 +52,50 @@ export function YourVaults({
   const perMonth = complete ? lines.reduce((sum, line) => sum + (line.perMonth ?? 0), 0) : undefined;
 
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground">Your vaults</h3>
-          <p className="font-display text-3xl font-bold">{total !== undefined ? formatUsd(total) : '–'}</p>
+    <section aria-labelledby="your-vaults" className="flex flex-col gap-3">
+      <SectionHeading id="your-vaults" title="Your vaults" hint="Select one to withdraw" />
+      <div className="rounded-lg border bg-card p-5 shadow-sm sm:px-6">
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Total value</p>
+            <p className="font-display text-3xl font-bold">{total !== undefined ? formatUsd(total) : '–'}</p>
+          </div>
+          {perMonth !== undefined && (
+            <p className="text-sm text-muted-foreground">
+              ≈ {formatUsd(perMonth)} per month at today's APRs (an estimate)
+            </p>
+          )}
         </div>
-        {perMonth !== undefined && (
-          <p className="text-sm text-muted-foreground">
-            ≈ {formatUsd(perMonth)} per month at today's APRs (an estimate)
-          </p>
-        )}
+        <ul className="mt-3 divide-y">
+          {lines.map(({ vault, holding, apr, usd }) => (
+            <li key={`${vault.vault}-${holding.chainKey}`}>
+              <button
+                type="button"
+                onClick={() => onWithdraw(vault.name, holding.chainKey)}
+                className="flex w-full items-center gap-3 py-3 text-left"
+              >
+                <TokenIcon symbol={underlying(vault).symbol} chainKey={holding.chainKey} className="size-9" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{vaultTitle(vault)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    From {chainName(holding.chainKey)} · {formatShares(holding.shares)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold">{formatUsd(usd) || '–'}</p>
+                  {apr !== undefined && (
+                    <p className="text-xs text-muted-foreground">{formatRayPercent(apr)} net APR</p>
+                  )}
+                </div>
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">
+                  <span className="hidden sm:inline">Withdraw</span>
+                  <ChevronRightIcon className="size-4" />
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul className="mt-3 divide-y">
-        {lines.map(({ vault, holding, apr, usd }) => (
-          <li key={`${vault.vault}-${holding.chainKey}`}>
-            <button
-              type="button"
-              onClick={() => onWithdraw(vault.name, holding.chainKey)}
-              className="flex w-full items-center gap-3 py-3 text-left"
-            >
-              <TokenIcon symbol={underlying(vault).symbol} chainKey={holding.chainKey} className="size-9" />
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">{vaultTitle(vault)}</p>
-                <p className="text-xs text-muted-foreground">
-                  From {chainName(holding.chainKey)} · {formatShares(holding.shares)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-semibold">{formatUsd(usd) || '–'}</p>
-                {apr !== undefined && <p className="text-xs text-muted-foreground">{formatRayPercent(apr)} net APR</p>}
-              </div>
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">
-                <span className="hidden sm:inline">Withdraw</span>
-                <ChevronRightIcon className="size-4" />
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import type { VaultStats } from '../api/useTransportReads';
 import { formatCompactUsd, formatUsd, priceFor, toUsd, type UsdPrices } from '../lib/usd';
 import { formatShares, shareValue, underlying, vaultTagline, vaultTitle } from '../lib/vaults';
+import { SectionHeading } from './SectionHeading';
 import { TokenIcon } from './TokenIcon';
 
 /** One row per vault: net APR, TVL in USD and, when connected, the user's shares across networks. */
@@ -24,24 +25,31 @@ export function VaultList({
   onOpen: (vaultName: string) => void;
 }) {
   return (
-    <ul className="flex flex-col gap-3">
-      {vaults.map(vault => {
-        const vaultStats = stats.get(vault.vault);
-        return (
-          vaultStats && (
-            <li key={vault.vault}>
-              <VaultRow
-                vault={vault}
-                stats={vaultStats}
-                prices={prices}
-                connected={connected}
-                onOpen={() => onOpen(vault.name)}
-              />
-            </li>
-          )
-        );
-      })}
-    </ul>
+    <section aria-labelledby="all-vaults" className="flex flex-col gap-3">
+      <SectionHeading
+        id="all-vaults"
+        title="All vaults"
+        hint={`${vaults.length} vault${vaults.length === 1 ? '' : 's'} · Select one to deposit`}
+      />
+      <ul className="flex flex-col gap-3">
+        {vaults.map(vault => {
+          const vaultStats = stats.get(vault.vault);
+          return (
+            vaultStats && (
+              <li key={vault.vault}>
+                <VaultRow
+                  vault={vault}
+                  stats={vaultStats}
+                  prices={prices}
+                  connected={connected}
+                  onOpen={() => onOpen(vault.name)}
+                />
+              </li>
+            )
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
