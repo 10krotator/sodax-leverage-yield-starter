@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatRayPercent } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { VaultStats } from '../api/useTransportReads';
-import { formatCompactUsd, formatUsd, priceFor, toUsd, type UsdPrices } from '../lib/usd';
+import { formatTvlUsd, formatUsd, priceFor, toUsd, type UsdPrices } from '../lib/usd';
 import { formatShares, shareValue, underlying, vaultTagline, vaultTitle } from '../lib/vaults';
 import { SectionHeading } from './SectionHeading';
 import { TokenIcon } from './TokenIcon';
@@ -100,7 +100,7 @@ function VaultRow({
       </div>
       <div className="hidden w-20 text-right sm:block">
         {tvlUsd !== undefined ? (
-          <p className="text-lg font-semibold">{formatCompactUsd(tvlUsd)}</p>
+          <p className="text-lg font-semibold">{formatTvlUsd(tvlUsd)}</p>
         ) : stats.tvl.isLoading ? (
           <Skeleton className="ml-auto h-7 w-14" />
         ) : (

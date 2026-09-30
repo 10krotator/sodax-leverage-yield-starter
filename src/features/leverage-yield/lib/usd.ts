@@ -26,6 +26,7 @@ const compactUsd = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
+const wholeUsd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 /** e.g. 4.931 → "$4.93", 0.004 → "< $0.01", undefined → "". */
 export function formatUsd(value: number | undefined): string {
@@ -34,8 +35,17 @@ export function formatUsd(value: number | undefined): string {
   return usd.format(value);
 }
 
-/** For big round numbers such as TVL: 2130 → "$2.1K", 632.04 → "$632.04". */
-export function formatCompactUsd(value: number | undefined): string {
+/**
+ * For TVL: exact enough to compare with other apps, short once it's large.
+ * 632.04 → "$632.04", 2344.48 → "$2,344", 12_300_000 → "$12.3M".
+ */
+export function formatTvlUsd(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value)) return '';
-  return Math.abs(value) < 1000 ? formatUsd(value) : compactUsd.format(value);
+  const abs = Math.abs(value);
+  if (abs < 1000) return formatUsd(value);
+  return abs < 1_000_000 ? wholeUsd.format(value) : compactUsd.format(value);
 }
+
+/** Where the USD prices come from, for tooltips: other apps use other feeds, so a small gap is expected. */
+export const USD_PRICE_NOTE =
+  'USD at SODAX money market prices. Other apps use other price feeds, so their figure may differ slightly.';

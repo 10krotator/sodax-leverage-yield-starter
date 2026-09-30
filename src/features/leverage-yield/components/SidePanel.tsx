@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip } from '@/components/ui/tooltip';
 import { formatBps, formatRayPercent, formatTokenAmount, formatWad } from '@/lib/format';
 import { type Read, useVaultPosition, type VaultStats } from '../api/useTransportReads';
-import { formatCompactUsd, priceFor, toUsd, type UsdPrices } from '../lib/usd';
+import { formatTvlUsd, priceFor, toUsd, USD_PRICE_NOTE, type UsdPrices } from '../lib/usd';
 import { underlying } from '../lib/vaults';
 import { Stepper } from './Stepper';
 
@@ -26,7 +26,7 @@ export function SidePanel({
 }) {
   const asset = underlying(vault);
   const position = useVaultPosition(vault.vault);
-  const tvlUsd = formatCompactUsd(toUsd(stats.tvl.data, asset.decimals, priceFor(prices, vault.asset)));
+  const tvlUsd = formatTvlUsd(toUsd(stats.tvl.data, asset.decimals, priceFor(prices, vault.asset)));
 
   return (
     <aside className="flex flex-col gap-5 rounded-lg bg-muted p-4 text-sm">
@@ -50,7 +50,14 @@ export function SidePanel({
             format={apr => `${formatRayPercent(apr.effectiveNetAprRay)}${apr.stale ? ' (estimate)' : ''}`}
           />
           <Stat
-            label="TVL"
+            label={
+              <span className="inline-flex items-center gap-1">
+                TVL
+                <Tooltip content={`Total value locked, in ${asset.symbol}. ${USD_PRICE_NOTE}`}>
+                  <InfoIcon className="size-3.5" />
+                </Tooltip>
+              </span>
+            }
             read={stats.tvl}
             format={tvl => `${formatTokenAmount(tvl, asset.decimals, 2)} ${asset.symbol}${tvlUsd && ` · ${tvlUsd}`}`}
           />
