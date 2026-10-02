@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { formatUnits } from 'viem';
 import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -138,7 +138,6 @@ export function DepositForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Deposit</CardTitle>
         <CardDescription>
           Deposit from any supported network and token. A solver swaps it into {vaultName} vault shares on Sonic.
         </CardDescription>

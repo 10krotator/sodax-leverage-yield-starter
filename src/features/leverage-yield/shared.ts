@@ -1,6 +1,9 @@
 /** lsoda* vault shares are always 18 decimals, regardless of the underlying asset. */
 export const SHARE_DECIMALS = 18;
 
+/** Swiss overline label: mono, uppercase, wide tracking. Used for stat and table-head labels. */
+export const OVERLINE = 'font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-subtle-foreground';
+
 /**
  * Human-readable message for a failed leverage-yield quote. The error is either the solver's own
  * response (`{ detail: { code, message } }` — e.g. "no path found", "Input amount too low") or a

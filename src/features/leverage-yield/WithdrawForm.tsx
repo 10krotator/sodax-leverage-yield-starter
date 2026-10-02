@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { formatUnits } from 'viem';
 import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -130,7 +130,6 @@ export function WithdrawForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Withdraw</CardTitle>
         <CardDescription>
           Swap {vaultName} shares from your hub wallet back into a token on a network you choose.
         </CardDescription>
